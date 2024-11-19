@@ -1,0 +1,165 @@
+---
+title: "london crime"
+output: html_document
+date: "2024-11-19"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, message=F}
+# load packages
+library(tidyverse)
+library(sf)
+library(cowplot)
+library(biscale)
+library(gt)
+
+
+# load data
+map_sf <- read_sf("C:/Users/Tarini/Documents/r-stuff/reddit/toby_crime/HG Crime Data/statistical-gis-boundaries-london/statistical-gis-boundaries-london/ESRI/London_Borough_Excluding_MHW.shp")
+crime_rate <- read_csv("C:/Users/Tarini/Documents/r-stuff/reddit/toby_crime/HG Crime Data/LONDON_CRIME_RATE_2019.csv")
+depr <- read_csv("C:/Users/Tarini/Documents/r-stuff/reddit/toby_crime/HG Crime Data/LONDON_DEPRIVATION_2019.csv")
+census <- read_csv("C:/Users/Tarini/Documents/r-stuff/reddit/toby_crime/HG Crime Data/LSOA_DATA.csv")
+
+```
+
+
+have a look at the map
+```{r}
+# london map
+ggplot(map_sf) +
+  geom_sf()
+
+```
+
+
+aggregate by borough
+```{r}
+# extract borough and lsoa id to aggregate
+borough_ids <- crime_rate |>
+  select(LSOA, NAME)
+
+
+census <- full_join(census, borough_ids, by="LSOA")
+census <- census |>
+  mutate(NAME = str_sub(NAME, 1, -6))
+
+depr <- full_join(depr, borough_ids, by="LSOA")
+depr <- depr |>
+  mutate(NAME = str_sub(NAME, 1, -6))
+
+crime_rate <- crime_rate |>
+  mutate(NAME = str_sub(NAME, 1, -6))
+
+# aggregate the columns of interest
+# crime by borough
+crim_bor <- crime_rate |>
+  select(NAME, RATE_per_1000) |>
+  group_by(NAME) |>
+  summarise(Crime_Rate_per_1000 = mean(RATE_per_1000))
+
+# median income by borough
+income_bor <- census |>
+  select(NAME, MEDIAN_INCOME_2013) |>
+  group_by(NAME) |>
+  summarise(Median_Income = mean(MEDIAN_INCOME_2013))
+
+# house ownership by borough
+home_bor <- census |>
+  select(NAME, Owned_outright) |>
+  group_by(NAME) |>
+  summarise(Home_Ownership = mean(Owned_outright))
+
+# house mortgage by borough
+home_mort_bor <- census |>
+  select(NAME, Owned_Mortgage) |>
+  group_by(NAME) |>
+  summarise(Home_Mortgage = mean(Owned_Mortgage))
+
+```
+
+
+```{r}
+# visualise the crime rate per 1000 inhabitants
+map_crime <- full_join(map_sf, crim_bor, by="NAME")
+
+x <- ggplot(map_crime) +
+  geom_sf(aes(fill=Crime_Rate_per_1000)) +
+  theme_void() +
+  scale_fill_viridis_c(direction=-1) +
+  labs(title = "Crime rate per 1000 inhabitants for London boroughs",
+       subtitle = "Darker colours indicate higher crime rate") +
+  theme(plot.title = element_text(size=15, hjust = .9, face = "bold"), 
+        plot.subtitle = element_text(size=11, hjust = .5))
+
+ggsave("London_crime_rate.jpg", plot=x, device = "jpeg", dpi=300)
+```
+
+```{r}
+# visualise median income
+map_income <- full_join(map_sf, income_bor, by="NAME")
+
+y <- ggplot(map_income) +
+  geom_sf(aes(fill=Median_Income)) +
+  theme_void() +
+  scale_fill_viridis_c(direction=-1) +
+  labs(title = "Median Income (2013) in £ for London boroughs", 
+       subtitle = "Darker colours indicate higher median income") +
+  theme(plot.title = element_text(size=15, hjust = .9, face = "bold"),
+        plot.subtitle = element_text(size=11, hjust = .5))
+
+ggsave("London_crime_median_income.jpg", plot=y, device = "jpeg", dpi=300)
+
+```
+
+
+```{r}
+# visualise home ownership
+map_home_own <- full_join(map_sf, home_bor, by="NAME")
+
+z <- ggplot(map_home_own) +
+  geom_sf(aes(fill=Home_Ownership)) +
+  theme_void() +
+  scale_fill_viridis_c(direction=-1) +
+  labs(title = "Mean home ownership (outright) for London boroughs",
+       subtitle = "Darker colours indicate higher outright home ownership rate") +
+  theme(plot.title = element_text(size=15, hjust = .9, face = "bold"),
+        plot.subtitle = element_text(size=11, hjust = .5))
+
+ggsave("London_crime_outright_home_ownership.jpg", plot=z, device = "jpeg", dpi=300)
+```
+
+
+
+```{r}
+# visualise home ownership by mortgage
+map_home_mort <- full_join(map_sf, home_mort_bor, by="NAME")
+
+zz <- ggplot(map_home_mort) +
+  geom_sf(aes(fill=Home_Mortgage)) +
+  theme_void() +
+  scale_fill_viridis_c(direction=-1) +
+  labs(title = "Mean home ownership (mortgage) for London boroughs",
+       subtitle = "Darker colours indicate higher home onwership by mortgage rate") +
+  theme(plot.title = element_text(size=15, hjust = .9, face = "bold"),
+        plot.subtitle = element_text(size=11, hjust = .5))
+
+ggsave("London_crime_mortaged_homes.jpg", plot=zz, device = "jpeg", dpi=300)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
